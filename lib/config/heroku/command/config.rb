@@ -8,16 +8,18 @@ class Heroku::Command::Config
   #
   # will not overwrite existing config vars by default
   #
-  # -i, --interactive  # prompt whether to overwrite each config var
-  # -o, --overwrite    # overwrite existing config vars
+  # -i, --interactive                    # prompt whether to overwrite each config var
+  # -o, --overwrite                      # overwrite existing config vars
+  # -f ENV_FILE, --file ENV_FILE         # .env file path (default ./.env)
   #
   def pull
     interactive = options[:interactive]
     overwrite   = options[:overwrite]
+    filename    = options[:file] || '.env'
 
-    config = merge_config(remote_config, local_config, interactive, overwrite)
-    write_local_config config
-    display "Config for #{app} written to .env"
+    config = merge_config remote_config, local_config(filename), interactive, overwrite
+    write_local_config config, filename
+    display "Config for #{app} written to #{filename}"
   end
 
   # config:push
@@ -26,22 +28,24 @@ class Heroku::Command::Config
   #
   # will not overwrite existing config vars by default
   #
-  # -i, --interactive  # prompt whether to overwrite each config var
-  # -o, --overwrite    # overwrite existing config vars
+  # -i, --interactive                    # prompt whether to overwrite each config var
+  # -o, --overwrite                      # overwrite existing config vars
+  # -f ENV_FILE, --file ENV_FILE         # .env file path (default ./.env)
   #
   def push
     interactive = options[:interactive]
     overwrite   = options[:overwrite]
+    filename    = options[:file] || '.env'
 
-    config = merge_config(local_config, remote_config, interactive, overwrite)
+    config = merge_config local_config(filename), remote_config, interactive, overwrite
     write_remote_config config
-    display "Config in .env written to #{app}"
+    display "Config in #{filename} written to #{app}"
   end
 
 private ######################################################################
 
-  def local_config
-    File.read(".env").split("\n").inject({}) do |hash, line|
+  def local_config(filename)
+    File.read(filename).split("\n").inject({}) do |hash, line|
       if line =~ /\A([A-Za-z0-9_]+)=(.*)\z/
         hash[$1] = $2
       end
@@ -55,8 +59,8 @@ private ######################################################################
     api.get_config_vars(app).body
   end
 
-  def write_local_config(config)
-    File.open(".env", "w") do |file|
+  def write_local_config(config, filename)
+    File.open(filename, "w") do |file|
       config.keys.sort.each do |key|
         file.puts "#{key}=#{config[key]}"
       end
